@@ -14,33 +14,6 @@ import pandas as pd
 from fastkNN import fastkNN
 
 
-# 2019.01.10 修改log函数为yeo-johnson变换，具体在 223、219行  --聚类结果没有明显提升，已取消
-# 2019.02.26 增加_find_core函数；增加二次最近邻图模块  --在某些任务中结果有一定提升，提升不明显
-# 2019.02.28 二次生成图模块初步完成  --在某些测试集上结果大幅提升；同时在某些测试集上结果有所下降
-# 拟加入权重评价模块：以子图长度（包含点的数量）衡量每个核心点的重要性
-
-'''
-计算每条最近邻链的端点并去噪，然后作为核心点输出。
-去噪算法： 计算所有最近邻链端点的{min_samples}距离平均值及标准差值，将{min_samples}距离大于（平均距离+noise_std_parm*标准差）
-          的核心点标记为噪音。
-          参数noise_std_parm的取值可由用户设置，默认为1.96(当核心点数大于120)/2.00
-          参数noise_std_parm的设置遵循以下假设：
-             数据点{min_samples}距离的分布整体呈现正态分布，向右偏离平均点过大的被认为是噪音点。根据统计理论，当样本点数较少且样本方差
-             未知时，应使用学生t-分布作为样本点分布估计。在此估计中，样本点数目为核心点数，每两个核心点为一组（处于同一条近邻链中）
-             的{min_samples}距离都是自由取值的故自由度应取核心点个数/2（即最近邻链的数目）。
-             去噪函数取单侧97.5%区间作为噪音判断条件。查表得，在正态分布上，此值为1.96而在t-分布上，此值取自由度为60时的取值，即2.00。
-             若有先验的关于噪音占比的信息，可方便地查表得到合适的参数值。
-
-输入：
-    graph:            数据集最近邻图邻接矩阵
-    neighbors_list:   数据集各点邻居列表
-    min_samples:      去噪时的基准距离参数（取数据点到第{mpts}个近邻的距离）
-    noise_std_parm:   去噪函数噪音判断参数
-输出：
-    core:             去噪后的核心点列表，格式为numpy.ndarray
-'''
-
-'''
 def _find_core(graph_csr, graph):
     core = []
     core_set = set()
@@ -208,10 +181,10 @@ def _sdbscan_merge_chain(is_core, per_index, labels, neb, noise, radius, d_index
 '''
 输入：
     X:                 数据集
-    min_samples:       回溯每个点的近邻数及聚类半径参数，默认为18
-    min_cluster_size:  最小簇大小，默认为15
-    noise_std_parm:    去噪函数噪音判断参数,详见_build_chain(）函数的参数说明
-    leaf_size:         kd树叶结点大小，默认为30
+    min_samples:       回溯每个点的近邻数及聚类半径参数，默认为 20
+    min_cluster_size:  最小簇大小，默认为 None
+    noise_percent:     先验噪声点比率
+    leaf_size:         空间分割树叶结点大小，默认为30
 
 输出：聚类结果标签数组
 '''
@@ -282,7 +255,6 @@ def sdbscan(X, min_samples=20, min_cluster_size=None, noise_percent=0.0, metric=
 
     radius = np.zeros(X.shape[0])
     for i in range(core.shape[0]):
-        # radius[index == core[i]] = (1 + chain_len[core[i]]/100) * np.mean(m[0][core[i]][0:min_samples - 1]
         radius[chain_index == core[i]] = (1 + 1 / (1 + np.exp(chain_len.max() - chain_len[core[i]]))) \
                                          * np.mean(nearest_list[0][core[i]][0:(min_samples - 1)])
     neighbors = [np.extract(nearest_list[0][i] <= radius[i], nearest_list[1][i]) for i in range(radius.shape[0])]
