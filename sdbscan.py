@@ -14,47 +14,6 @@ import pandas as pd
 from fastkNN import fastkNN
 
 
-def _find_core(graph_csr, graph):
-    core = []
-    core_set = set()
-    for i in range(graph.shape[0]):
-        if i in core_set:
-            continue
-        j = graph_csr.indices[i]
-        if graph[j, i] != 0:
-            core.extend([i, j])
-            core_set.update([i, j])
-
-    return np.asarray(core, dtype=np.uint64)
-
-
-def _build_chain(graph, graph_csr):
-    per = np.empty(graph_csr.indices.size, dtype=np.intp)
-    per[:] = graph_csr.indices
-    core = []
-    core_set = set()
-
-    for i in range(graph.shape[0]):
-        r = i
-        while True:
-            if per[per[r]] == r:
-                if r not in core_set:
-                    core += [r, per[r]]
-                    core_set.update([r, per[r]])
-                    per[per[r]] = per[r]
-                    per[r] = r
-                break
-            r = per[r]
-        j = i
-        while j != r:
-            z = per[j]
-            per[j] = r
-            j = z
-
-    return np.asarray(core, dtype=np.uint64), per
-'''
-
-
 def _build_chain(data_len, graph_csr):
     per = np.empty(len(graph_csr.indices), dtype=np.intp)
     per[:] = graph_csr.indices
@@ -130,53 +89,6 @@ def _sdbscan_merge_chain(is_core, per_index, neighbors, d_index, labels, radius,
     return labels
 
 
-'''
-def _sdbscan_merge_chain(is_core, per_index, labels, neb, noise, radius, d_index):
-    stack = deque()
-    lables_num = 0
-    for i in range(labels.shape[0]):
-        if labels[i] != -1:
-            continue
-        elif not is_core[per_index[i]]:
-            continue
-        elif noise[i]:
-            continue
-
-        while True:
-            if labels[i] == -1:
-                labels[i] = lables_num
-                if is_core[i]:
-                    subgraph = np.where(per_index == i)[0]
-                    labels[subgraph] = lables_num
-                    core_nebr = neb[i]
-                    exp_nebr = np.unique(np.hstack(neb[per_index == i]))
-
-                    for j in range(core_nebr.shape[0]):
-                        v = core_nebr[j]
-                        if is_core[v]:
-                            #if i in neb[v]:
-                            if d_index[i][j] <= radius[v]:
-                                stack.append(v)
-                            else:
-                                continue
-                        # elif labels[v] == -1:
-                           # stack.append(v)
-                        else:
-                            continue
-
-                    for j in range(exp_nebr.shape[0]):
-                        v = exp_nebr[j]
-                        if labels[v] == -1 and not is_core[per_index[v]]:
-                            labels[v] = lables_num
-                        else:
-                            continue
-            if not stack:
-                break
-            i = stack.pop()
-        lables_num += 1
-
-    return labels
-'''
 
 '''
 输入：
